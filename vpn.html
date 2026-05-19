@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Komut İstemi — VPN Routing Simülasyonu</title>
+<style>
+  body {
+    background-color: #0c0c0c;
+    color: #cccccc;
+    font-family: 'Consolas', 'Lucida Console', 'Courier New', monospace;
+    margin: 0;
+    padding: 0;
+    font-size: 15px;
+    line-height: 1.35;
+    height: 100vh;
+    box-sizing: border-box;
+    overflow: hidden;
+    cursor: text;
+  }
+
+  /* Pencere chrome - Windows 11 tarzı başlık çubuğu */
+  .title-bar {
+    background: #1e1e1e;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    user-select: none;
+    border-bottom: 1px solid #333;
+    height: 34px;
+    box-sizing: border-box;
+  }
+  .title-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .title-bar-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+  }
+  .title-bar-text {
+    font-size: 12px;
+    color: #aaa;
+    font-family: 'Segoe UI', sans-serif;
+  }
+  .title-bar-buttons {
+    display: flex;
+    gap: 0;
+  }
+  .title-btn {
+    width: 46px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #999;
+    font-size: 11px;
+    font-family: 'Segoe MDL2 Assets', 'Segoe UI Symbol', sans-serif;
+    cursor: default;
+    transition: background 0.1s;
+  }
+  .title-btn:hover { background: #333; color: #fff; }
+  .title-btn.close:hover { background: #e81123; color: #fff; }
+
+  /* Tab bar */
+  .tab-bar {
+    background: #181818;
+    display: flex;
+    align-items: end;
+    padding: 0 8px;
+    height: 36px;
+    gap: 0;
+    border-bottom: 1px solid #333;
+  }
+  .tab {
+    background: #0c0c0c;
+    padding: 7px 16px 7px 12px;
+    font-size: 12px;
+    font-family: 'Segoe UI', sans-serif;
+    color: #ccc;
+    border: 1px solid #333;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    top: 1px;
+  }
+  .tab-icon { font-size: 11px; }
+  .tab-close { color: #666; font-size: 10px; margin-left: 12px; cursor: default; }
+  .tab-close:hover { color: #fff; }
+  .tab-new {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    font-size: 18px;
+    cursor: default;
+    margin-left: 4px;
+    border-radius: 4px;
+  }
+  .tab-new:hover { background: #333; color: #ccc; }
+
+  /* Terminal body */
+  .terminal-body {
+    padding: 8px 16px 60px;
+    overflow-y: auto;
+    height: calc(100vh - 72px);
+    box-sizing: border-box;
+  }
+  .terminal-body::-webkit-scrollbar { width: 14px; }
+  .terminal-body::-webkit-scrollbar-track { background: #0c0c0c; }
+  .terminal-body::-webkit-scrollbar-thumb { background: #444; border: 3px solid #0c0c0c; border-radius: 7px; }
+  .terminal-body::-webkit-scrollbar-thumb:hover { background: #666; }
+
+  .output-line { white-space: pre-wrap; word-wrap: break-word; min-height: 1.35em; }
+
+  .input-wrapper { display: flex; align-items: center; margin-top: 2px; }
+  .prompt { margin-right: 0; color: #cccccc; }
+
+  input[type="text"] {
+    background: transparent;
+    border: none;
+    color: #cccccc;
+    font-family: 'Consolas', 'Lucida Console', 'Courier New', monospace;
+    font-size: 15px;
+    flex-grow: 1;
+    outline: none;
+    caret-color: #cccccc;
+    padding: 0;
+    margin: 0;
+  }
+  input:disabled { background: transparent; }
+
+  .highlight-red { color: #ff5555; font-weight: bold; }
+  .highlight-green { color: #55ff55; font-weight: bold; }
+  .highlight-yellow { color: #ffff55; }
+  .highlight-cyan { color: #55ffff; }
+  .highlight-dim { color: #666666; }
+  .table-header { font-weight: bold; }
+
+  /* Senaryo bilgi paneli - altta */
+  .scenario-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #1a1a2e;
+    border-top: 1px solid #333;
+    padding: 6px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: 'Segoe UI', 'Consolas', sans-serif;
+    font-size: 12px;
+    color: #888;
+    z-index: 10;
+  }
+  .scenario-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .indicator-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: blink-dot 2s infinite;
+  }
+  .dot-red { background: #ff5555; }
+  .dot-green { background: #55ff55; }
+  @keyframes blink-dot { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+  .scenario-help { color: #555; }
+  .scenario-help span { color: #888; background: #222; padding: 1px 6px; border-radius: 3px; font-family: 'Consolas', monospace; margin: 0 2px; }
+</style>
+</head>
+<body>
+
+<!-- Windows Terminal başlık çubuğu -->
+<div class="title-bar">
+  <div class="title-bar-left">
+    <div class="title-bar-icon">⬛</div>
+    <div class="title-bar-text">Komut İstemi — VPN Routing Simülasyonu</div>
+  </div>
+  <div class="title-bar-buttons">
+    <div class="title-btn">─</div>
+    <div class="title-btn">☐</div>
+    <div class="title-btn close">✕</div>
+  </div>
+</div>
+
+<!-- Tab bar -->
+<div class="tab-bar">
+  <div class="tab">
+    <span class="tab-icon">⬛</span>
+    Komut İstemi
+    <span class="tab-close">✕</span>
+  </div>
+  <div class="tab-new">+</div>
+</div>
+
+<!-- Terminal -->
+<div class="terminal-body" id="terminal-body">
+  <div id="output-container">
+    <div class="output-line">Microsoft Windows [Version 10.0.22621.2965]</div>
+    <div class="output-line">(c) Microsoft Corporation. Tüm hakları saklıdır.</div>
+    <div class="output-line"></div>
+    <div class="output-line"><span class="highlight-cyan">═══════════════════════════════════════════════════════════════</span></div>
+    <div class="output-line"><span class="highlight-cyan">  VPN Routing Simülasyonu — Bilişim Etiği Dersi Uygulaması</span></div>
+    <div class="output-line"><span class="highlight-cyan">  Senaryo: Full-Tunnel VPN bağlıyken routing tablosu analizi</span></div>
+    <div class="output-line"><span class="highlight-cyan">═══════════════════════════════════════════════════════════════</span></div>
+    <div class="output-line"></div>
+    <div class="output-line"><span class="highlight-dim">  Kullanılabilir komutlar için 'help' yazın.</span></div>
+    <div class="output-line"></div>
+  </div>
+
+  <div class="input-wrapper" id="input-line">
+    <span class="prompt">C:\Users\BOTE&gt;</span>
+    <input type="text" id="cmd-input" autocomplete="off" spellcheck="false" autofocus>
+  </div>
+</div>
+
+<!-- Alt durum çubuğu -->
+<div class="scenario-bar">
+  <div class="scenario-indicator">
+    <div class="indicator-dot dot-red" id="vpnDot"></div>
+    <span id="vpnStatus">VPN: Full-Tunnel Aktif — Tüm trafik kurumsal ağdan geçiyor</span>
+  </div>
+  <div class="scenario-help">
+    <span>help</span> komutlar &nbsp; <span>route print</span> rota tablosu &nbsp; <span>tracert</span> yol izleme &nbsp; <span>cls</span> temizle
+  </div>
+</div>
+
+<script>
+const inputField = document.getElementById('cmd-input');
+const outputContainer = document.getElementById('output-container');
+const body = document.getElementById('terminal-body');
+const vpnDot = document.getElementById('vpnDot');
+const vpnStatus = document.getElementById('vpnStatus');
+
+let commandHistory = [];
+let historyIndex = -1;
+let isProcessing = false;
+
+// Başlangıç: Full-Tunnel VPN aktif
+let routingTable = [
+  { dest:"0.0.0.0", mask:"0.0.0.0", gateway:"10.50.0.1", iface:"10.50.0.105", metric:2, isCorp:true },
+  { dest:"0.0.0.0", mask:"0.0.0.0", gateway:"192.168.1.1", iface:"192.168.1.105", metric:35, isCorp:false },
+  { dest:"10.50.0.0", mask:"255.255.255.0", gateway:"Aygıt Üzerinde", iface:"10.50.0.105", metric:2, isCorp:true },
+  { dest:"127.0.0.0", mask:"255.0.0.0", gateway:"Aygıt Üzerinde", iface:"127.0.0.1", metric:331, isCorp:false },
+  { dest:"192.168.1.0", mask:"255.255.255.0", gateway:"Aygıt Üzerinde", iface:"192.168.1.105", metric:291, isCorp:false },
+  { dest:"255.255.255.255", mask:"255.255.255.255", gateway:"Aygıt Üzerinde", iface:"192.168.1.105", metric:291, isCorp:false },
+];
+
+function updateStatus() {
+  const hasCorpDefault = routingTable.some(r => r.dest === "0.0.0.0" && r.gateway === "10.50.0.1");
+  const hasCorpSpecific = routingTable.some(r => r.dest !== "0.0.0.0" && r.isCorp);
+
+  if (hasCorpDefault) {
+    vpnDot.className = 'indicator-dot dot-red';
+    vpnStatus.textContent = 'VPN: Full-Tunnel Aktif — Tüm trafik kurumsal ağdan geçiyor';
+    vpnStatus.style.color = '#ff5555';
+  } else if (hasCorpSpecific) {
+    vpnDot.className = 'indicator-dot dot-green';
+    vpnStatus.textContent = 'VPN: Split-Tunnel — Sadece kurumsal trafik VPN\'den geçiyor';
+    vpnStatus.style.color = '#55ff55';
+  } else {
+    vpnDot.className = 'indicator-dot dot-green';
+    vpnStatus.textContent = 'VPN: Bağlı Değil — Tüm trafik ev modeminden çıkıyor';
+    vpnStatus.style.color = '#888';
+  }
+}
+
+body.addEventListener('click', () => { if(!isProcessing) inputField.focus(); });
+
+inputField.addEventListener('keydown', async function(e) {
+  if (e.key === 'Enter') {
+    const command = inputField.value.trim();
+    if (command !== '') {
+      commandHistory.push(command);
+      historyIndex = commandHistory.length;
+      inputField.value = '';
+      isProcessing = true;
+      inputField.disabled = true;
+      await processCommand(command);
+      inputField.disabled = false;
+      isProcessing = false;
+      inputField.focus();
+    } else {
+      out(`<span class="prompt">C:\\Users\\BOTE&gt;</span>`);
+      scroll();
+    }
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (historyIndex > 0) { historyIndex--; inputField.value = commandHistory[historyIndex]; }
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (historyIndex < commandHistory.length - 1) { historyIndex++; inputField.value = commandHistory[historyIndex]; }
+    else { historyIndex = commandHistory.length; inputField.value = ''; }
+  }
+});
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function out(html) {
+  const d = document.createElement('div');
+  d.className = 'output-line';
+  d.innerHTML = html;
+  outputContainer.appendChild(d);
+}
+function scroll() { body.scrollTop = body.scrollHeight; }
+function pad(s, n) { return ("                                " + s).slice(-n); }
+
+async function processCommand(cmd) {
+  out(`<span class="prompt">C:\\Users\\BOTE&gt;</span>${escapeHtml(cmd)}`);
+  scroll();
+  const args = cmd.split(/\s+/);
+  const base = args[0].toLowerCase();
+  const full = cmd.toLowerCase().replace(/\s+/g, ' ').trim();
+
+  try {
+    if (base === 'cls' || base === 'clear') {
+      outputContainer.innerHTML = '';
+    }
+    else if (base === 'help') {
+      out('');
+      out('Kullanılabilir komutlar:');
+      out('');
+      out('  ARP -a         ARP tablosunu görüntüler');
+      out('  CLS            Ekranı temizler');
+      out('  HELP           Bu yardım mesajını gösterir');
+      out('  IPCONFIG       Ağ yapılandırmasını gösterir (/all detaylı)');
+      out('  PING [hedef]   Ağ bağlantısını test eder');
+      out('  ROUTE PRINT    Yönlendirme tablosunu görüntüler');
+      out('  ROUTE ADD      Yeni rota ekler');
+      out('  ROUTE DELETE   Mevcut rotayı siler');
+      out('  SYSTEMINFO     Sistem bilgisini gösterir');
+      out('  TRACERT [hedef] Hedefe giden rotayı izler');
+      out('');
+      out('<span class="highlight-dim">  Önerilen sıra: route print → tracert google.com → route delete 0.0.0.0 10.50.0.1</span>');
+      out('<span class="highlight-dim">                  → route print → tracert google.com</span>');
+      out('');
+    }
+    else if (base === 'systeminfo') {
+      await sleep(600);
+      out('');
+      out('Ana Bilgisayar Adı:              DESKTOP-BOTE');
+      out('İşletim Sistemi Adı:             Microsoft Windows 11 Pro');
+      out('İşletim Sistemi Sürümü:          10.0.22621 N/A Yapı 22621');
+      out('İşletim Sistemi Üreticisi:       Microsoft Corporation');
+      out('İşletim Sistemi Yapılandırması:  Bağımsız İş İstasyonu');
+      out('Kayıtlı Sahibi:                  BOTE User');
+      out('Sistem Türü:                     x64-based PC');
+      out('Ağ Bağdaştırıcıları:             2 NIC yüklü.');
+      out('                                 [01]: Intel(R) Wi-Fi 6 AX201 160MHz');
+      out('                                 [02]: bote company Virtual Adapter');
+      out('');
+    }
+    else if (base === 'arp' && args[1] === '-a') {
+      await sleep(300);
+      out('');
+      out('Arabirim: 192.168.1.105 --- 0xc');
+      out('  İnternet Adresi       Fiziksel Adres        Tür');
+      out('  192.168.1.1           a4-2b-8c-11-22-33     dinamik');
+      out('  192.168.1.255         ff-ff-ff-ff-ff-ff     statik');
+      out('  224.0.0.22            01-00-5e-00-00-16     statik');
+      out('');
+      await sleep(150);
+      out('Arabirim: 10.50.0.105 --- 0x14');
+      out('  İnternet Adresi       Fiziksel Adres        Tür');
+      out('  10.50.0.1             00-50-56-c0-00-08     dinamik');
+      out('  10.50.0.255           ff-ff-ff-ff-ff-ff     statik');
+      out('');
+    }
+    else if (base === 'ipconfig') {
+      await sleep(250);
+      out('');
+      out('Windows IP Yapılandırması');
+      out('');
+      if (full.includes('/all')) {
+        out('   Ana Bilgisayar Adı. . . . . . . . . . : DESKTOP-BOTE');
+        out('   Birincil Dns Soneki . . . . . . . . . :');
+        out('   Düğüm Türü . . . . . . . . . . . . . : Karma');
+        out('   IP Yönlendirmesi Etkin. . . . . . . . : Hayır');
+        out('   WINS Proxy Etkin. . . . . . . . . . . : Hayır');
+        out('');
+      }
+      await sleep(200);
+      out('Ethernet bağdaştırıcısı Kurumsal VPN:');
+      out('');
+      out('   Bağlantıya Özgü DNS Soneki. . . . . . : bote.local');
+      if (full.includes('/all')) out('   Açıklama. . . . . . . . . . . . . . . : bote company');
+      if (full.includes('/all')) out('   Fiziksel Adres. . . . . . . . . . . . : 00-50-56-C0-00-08');
+      out('   IPv4 Adresi . . . . . . . . . . . . . : 10.50.0.105');
+      out('   Alt Ağ Maskesi. . . . . . . . . . . . : 255.255.255.0');
+      out('   Varsayılan Ağ Geçidi. . . . . . . . . : 10.50.0.1');
+      out('');
+      await sleep(200);
+      out('Kablosuz LAN bağdaştırıcısı Wi-Fi:');
+      out('');
+      out('   Bağlantıya Özgü DNS Soneki. . . . . . : local');
+      if (full.includes('/all')) out('   Açıklama. . . . . . . . . . . . . . . : Intel(R) Wi-Fi 6 AX201 160MHz');
+      if (full.includes('/all')) out('   Fiziksel Adres. . . . . . . . . . . . : A1-B2-C3-D4-E5-F6');
+      out('   IPv4 Adresi . . . . . . . . . . . . . : 192.168.1.105');
+      out('   Alt Ağ Maskesi. . . . . . . . . . . . : 255.255.255.0');
+      out('   Varsayılan Ağ Geçidi. . . . . . . . . : 192.168.1.1');
+      out('');
+    }
+    else if (base === 'route') {
+      if (args.length === 1) {
+        out('Ağ yönlendirme tablolarını işler.');
+        out('Kullanım: ROUTE [command] [destination] [MASK netmask] [gateway] [METRIC metric]');
+        out('');
+        return;
+      }
+      const action = args[1].toLowerCase();
+
+      if (action === 'print') {
+        await sleep(350);
+        out('');
+        out('===========================================================================');
+        out('Arabirim Listesi');
+        out(' 20...00 50 56 c0 00 08 ......bote company');
+        out(' 12...a1 b2 c3 d4 e5 f6 ......Intel(R) Wi-Fi 6 AX201 160MHz');
+        out('  1...........................Software Loopback Interface 1');
+        out('===========================================================================');
+        out('');
+        out('IPv4 Yönlendirme Tablosu');
+        out('===========================================================================');
+        out('<span class="table-header">Aktif Rotalar:</span>');
+        out(`<span class="table-header">${pad("Ağ Hedefi",18)}${pad("Ağ Maskesi",18)}${pad("Ağ Geçidi",18)}${pad("Arabirim",18)}${pad("Ölçü",8)}</span>`);
+
+        const sorted = [...routingTable].sort((a,b) => a.metric - b.metric);
+        for (const r of sorted) {
+          const line = `${pad(r.dest,18)}${pad(r.mask,18)}${pad(r.gateway,18)}${pad(r.iface,18)}${pad(r.metric.toString(),8)}`;
+          if (r.isCorp && r.dest === "0.0.0.0") {
+            out(`<span class="highlight-red">${line}</span>  <span class="highlight-dim">&lt;-- TÜM trafik VPN'den geçiyor!</span>`);
+          } else if (r.isCorp && r.dest !== "0.0.0.0" && r.dest !== "10.50.0.0") {
+            out(`<span class="highlight-green">${line}</span>  <span class="highlight-dim">&lt;-- Sadece kurumsal trafik</span>`);
+          } else {
+            out(line);
+          }
+        }
+        out('===========================================================================');
+        out('');
+      }
+      else if (action === 'delete') {
+        await sleep(250);
+        if (args.length < 3) { out(' HATA: Bağımsız değişken sayısı yetersiz.'); out(''); return; }
+        const target = args[2];
+        const gateway = args.length > 3 ? args[3] : null;
+        const before = routingTable.length;
+        routingTable = routingTable.filter(r => {
+          let match = r.dest === target;
+          if (gateway) match = match && r.gateway === gateway;
+          return !match;
+        });
+        if (routingTable.length < before) {
+          out(' TAMAM!'); out('');
+        } else {
+          out(' Belirtilen yol bulunamadı.'); out('');
+        }
+        updateStatus();
+      }
+      else if (action === 'add') {
+        await sleep(250);
+        if (args.length < 5 || !full.includes('mask')) {
+          out(' Yol ekleme başarısız: Eksik maske veya ağ geçidi parametresi.'); out(''); return;
+        }
+        const target = args[2];
+        const mi = args.findIndex(a => a.toLowerCase() === 'mask');
+        const mask = args[mi + 1];
+        const gw = args[mi + 2];
+        const ipRe = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
+        if (!ipRe.test(target) || !ipRe.test(mask) || !ipRe.test(gw)) {
+          out(' Yol ekleme başarısız: Geçersiz IP formatı.'); out(''); return;
+        }
+        routingTable = routingTable.filter(r => !(r.dest===target && r.mask===mask && r.gateway===gw));
+        routingTable.push({ dest:target, mask:mask, gateway:gw, iface:"10.50.0.105", metric:2, isCorp:true });
+        out(' TAMAM!'); out('');
+        updateStatus();
+      }
+      else { out(`Bilinmeyen komut '${action}'.`); out(''); }
+    }
+    else if (base === 'ping') {
+      if (args.length < 2) { out('Kullanım: ping [-t] [-a] [-n count] [-l size] hedef_adı'); out(''); return; }
+      let target = args[1];
+      let ip = target;
+      const dns = { 'google.com':'142.250.184.206', 'youtube.com':'142.250.184.206', 'siemens.com':'194.138.21.32', 'bote.local':'10.50.1.10', 'instagram.com':'157.240.1.174', 'garanti.com.tr':'212.156.132.50' };
+      if (dns[target.toLowerCase()]) ip = dns[target.toLowerCase()];
+
+      await sleep(400);
+      out('');
+      out(`${target} [${ip}] ile 32 bayt veri ping ediliyor:`);
+      out('');
+
+      let min=999, max=0, sum=0, loss=0;
+      for (let i=0; i<4; i++) {
+        await sleep(600);
+        let hasRoute = routingTable.some(r => r.dest==="0.0.0.0" || (r.isCorp && ip.startsWith("10.")));
+        if (!hasRoute && ip.startsWith("10.")) {
+          out('İstek zaman aşımına uğradı.');
+          loss++;
+        } else {
+          let ms = Math.floor(Math.random()*8) + (ip.startsWith("10.") ? 14 : 22);
+          min=Math.min(min,ms); max=Math.max(max,ms); sum+=ms;
+          out(`Cevap ${ip}: bayt=32 süre=${ms}ms TTL=117`);
+        }
+      }
+      await sleep(300);
+      let recv = 4-loss;
+      out('');
+      out(`${ip} için Ping istatistikleri:`);
+      out(`    Paketler: Giden = 4, Alınan = ${recv}, Kaybolan = ${loss} (%${loss*25} kayıp),`);
+      if (recv > 0) {
+        out('Gidiş Dönüş Süresi (Milisaniye Cinsinden):');
+        out(`    En Düşük = ${min}ms, En Yüksek = ${max}ms, Ortalama = ${Math.floor(sum/recv)}ms`);
+      }
+      out('');
+    }
+    else if (base === 'tracert') {
+      if (args.length < 2) { out('Kullanım: tracert [-d] [-h maximum_hops] hedef_adı'); out(''); return; }
+      let target = args[1];
+      let displayTarget = target;
+      const dns = { 'google.com':'142.250.184.206', 'youtube.com':'142.250.184.206', 'garanti.com.tr':'212.156.132.50', 'instagram.com':'157.240.1.174' };
+      if (dns[target.toLowerCase()]) { displayTarget = `${target} [${dns[target.toLowerCase()]}]`; target = dns[target.toLowerCase()]; }
+
+      await sleep(350);
+      out('');
+      out(`${displayTarget} hedefine giden yol izleniyor`);
+      out('en fazla 30 sıçrama:');
+      out('');
+
+      const hasCorpDefault = routingTable.some(r => r.dest==="0.0.0.0" && r.gateway==="10.50.0.1");
+      const hasCorpSpecific = routingTable.some(r => r.dest==="10.0.0.0" && r.mask==="255.0.0.0");
+      const hasHomeDefault = routingTable.some(r => r.dest==="0.0.0.0" && r.gateway==="192.168.1.1");
+
+      if (target.startsWith("10.")) {
+        if (hasCorpDefault || hasCorpSpecific) {
+          await sleep(800);
+          out(`  1    15 ms    14 ms    15 ms  <span class="highlight-green">10.50.0.1 [Kurumsal VPN Gateway]</span>`);
+          await sleep(800);
+          out(`  2    16 ms    15 ms    16 ms  ${target}`);
+        } else {
+          await sleep(800);
+          out('  1    <1 ms    <1 ms    <1 ms  192.168.1.1');
+          await sleep(800);
+          out('  2     *        *        *     İstek zaman aşımına uğradı.');
+          await sleep(600);
+          out('  3  Hedef ağ ulaşılamaz.');
+        }
+      } else {
+        if (hasCorpDefault) {
+          await sleep(1000);
+          out(`  1    16 ms    15 ms    16 ms  <span class="highlight-red">10.50.0.1 [Kurumsal VPN Gateway — MAHREMİYET İHLALİ!]</span>`);
+          await sleep(1000);
+          out('  2    22 ms    21 ms    22 ms  192.168.100.1 [Kurumsal ISP]');
+          await sleep(1000);
+          out(`  3    28 ms    26 ms    27 ms  ${target}`);
+        } else if (hasHomeDefault) {
+          await sleep(800);
+          out(`  1     2 ms     1 ms     2 ms  <span class="highlight-green">192.168.1.1 [Ev Modemi — Güvenli Yol ✓]</span>`);
+          await sleep(1000);
+          out('  2    10 ms    11 ms    10 ms  10.20.30.40 [Yerel Servis Sağlayıcı]');
+          await sleep(1000);
+          out(`  3    15 ms    14 ms    15 ms  ${target}`);
+        } else {
+          await sleep(600);
+          out('  1  İletim hatası: hata kodu 1231.');
+        }
+      }
+      await sleep(300);
+      out('');
+      out('İzleme tamamlandı.');
+      out('');
+    }
+    else {
+      await sleep(150);
+      out(`'${cmd}' iç ya da dış komut, çalıştırılabilir program ya da toplu iş dosyası olarak tanınmıyor.`);
+      out('');
+    }
+  } catch(err) {
+    out(`Beklenmeyen bir sistem hatası oluştu: ${err.message}`);
+    out('');
+  }
+  scroll();
+}
+
+function escapeHtml(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+updateStatus();
+inputField.focus();
+</script>
+</body>
+</html>
